@@ -41,27 +41,25 @@ class PeerState(object):
             return
 
         self.check_interval = check_interval
-        self.peers = peers.copy()
-        self.peers_up = peers.copy()
-        self.peers_down = []
+        self.peers = set(peers)
+        self.peers_up = set(peers)
+        self.peers_down = {}
 
     def reset(self):
-        for _, pname in self.peers_down:
-            self.peers_up.append(pname)
         self.peers_down.clear()
+        for peer_name in self.peers:
+            self.peers_up.add(peer_name)
 
     def mark_peer_up(self, peer_name):
         with self.state_lock:
-            for i, (_, pname) in enumerate(self.peers_down):
-                if pname == peer_name:
-                    self.peers_down.pop(i)
-            self.peers_up.append(peer_name)
+            self.peers_down.pop(peer_name)
+            self.peers_up.add(peer_name)
         LOGGER.info('Marked peer %s as up', peer_name)
 
     def mark_peer_down(self, peer_name):
         with self.state_lock:
-            self.peers_up.remove(peer_name)
-            self.peers_down.append((time(), peer_name))
+            self.peers_up.discard(peer_name)
+            self.peers_down[peer_name] = time()
         LOGGER.info('Marked peer %s as down', peer_name)
 
     def get_peer_connection(self, peer_name):
@@ -74,7 +72,7 @@ class PeerState(object):
         self.retry_lock.acquire(False)
 
         try:
-            for downtime, peer_name in self.peers_down:
+            for peer_name, downtime in self.peers_down.items():
                 if time() - self.check_interval >= downtime:
                     # Time to re-check this peer.
                     try:
@@ -83,7 +81,8 @@ class PeerState(object):
                     except DatabaseError as e:
                         # Still down.
                         LOGGER.debug(e, exc_info=True)
-                        LOGGER.info('Peer %s still down', peer_name)
+                        LOGGER.info('Peer %s is still down', peer_name)
+                        self.peers_down[peer_name] = time()
 
                     else:
                         self.mark_peer_up(peer_name)
@@ -96,9 +95,9 @@ class PeerState(object):
         # Select a random peer.
         while True:
             try:
-                peer_name = random.choice(self.peers_up)
+                peer_name = random.sample(self.peers_up, 1)[0]
 
-            except IndexError:
+            except ValueError:
                 # No peers up.
                 raise DatabaseError('No available peers')
 

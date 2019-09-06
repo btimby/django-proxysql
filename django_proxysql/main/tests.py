@@ -43,7 +43,7 @@ class PeerTestCase(ProxySQLTestCase):
             conn.connect()
 
         # No peers should be up.
-        self.assertEqual(conn.state.peers_up, [])
+        self.assertEqual(len(conn.state.peers_up), 0)
 
     @mock.patch('MySQLdb.connect')
     def test_connect_one_down(self, mock_connect):
