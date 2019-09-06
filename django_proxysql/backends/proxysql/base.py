@@ -58,9 +58,10 @@ class PeerState(object):
 
     def mark_peer_down(self, peer_name):
         with self.state_lock:
+            retry = time() + self.check_interval
             self.peers_up.discard(peer_name)
-            self.peers_down[peer_name] = time()
-        LOGGER.info('Marked peer %s as down', peer_name)
+            self.peers_down[peer_name] = retry
+        LOGGER.info('Marked peer %s as down, retry at %s', peer_name, retry)
 
     def get_peer_connection(self, peer_name):
         peer = connections[peer_name]
@@ -72,8 +73,8 @@ class PeerState(object):
         self.retry_lock.acquire(False)
 
         try:
-            for peer_name, downtime in self.peers_down.items():
-                if time() - self.check_interval >= downtime:
+            for peer_name, retry in self.peers_down.items():
+                if time() >= retry:
                     # Time to re-check this peer.
                     try:
                         conn = self.get_peer_connection(peer_name)
@@ -82,7 +83,7 @@ class PeerState(object):
                         # Still down.
                         LOGGER.debug(e, exc_info=True)
                         LOGGER.info('Peer %s is still down', peer_name)
-                        self.peers_down[peer_name] = time()
+                        self.mark_peer_down(peer_name)
 
                     else:
                         self.mark_peer_up(peer_name)
