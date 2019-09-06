@@ -73,7 +73,8 @@ class PeerState(object):
 
     def try_downed_peers(self):
         "Try peers_down and return a live connection (if available)."
-        self.retry_lock.acquire(False)
+        if not self.retry_lock.acquire(False):
+            return
 
         try:
             for peer_name, retry in self.peers_down.items():
