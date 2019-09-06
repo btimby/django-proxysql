@@ -83,7 +83,7 @@ class PeerState(object):
                     try:
                         conn = self.get_peer_connection(peer_name)
 
-                    except DatabaseError as e:
+                    except MySQLdb.Error as e:
                         # Still down.
                         LOGGER.debug(e, exc_info=True)
                         LOGGER.info('Peer %s is still down', peer_name)

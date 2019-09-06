@@ -43,6 +43,7 @@ class PeerTestCase(ProxySQLTestCase):
 
         # No peers should be up.
         self.assertEqual(len(connection.state.peers_up), 0)
+        self.assertEqual(len(connection.state.peers_down), 2)
 
     @mock.patch('MySQLdb.connect')
     def test_connect_one_down(self, mock_connect):
@@ -77,3 +78,28 @@ class PeerTestCase(ProxySQLTestCase):
 
         # all peers should be up once again.
         self.assertItemsEqual(connection.state.peers_up, connection.state.peers)
+
+    @mock.patch('MySQLdb.connect')
+    def test_connect_partial_recovery(self, mock_connect):
+        "Ensure that a peer is retried after check_interval passes."
+        mock_connect.side_effect = [
+            OperationalError(), OperationalError(), OperationalError(),
+            mock.MagicMock(), mock.MagicMock()]
+
+        # If any server is up, connect() should succeed.
+        with self.assertRaises(DatabaseError):
+            connection.connect()
+
+        # One peer should be up, and one down.
+        self.assertEqual(len(connection.state.peers_up), 0)
+        self.assertEqual(len(connection.state.peers_down), 2)
+
+        # FFWD time, our failed server should be retried.
+        future = datetime.now() + timedelta(
+            seconds=connection.state.check_interval)
+        with freeze_time(future):
+            connection.connect()
+
+        # one peer should be up once again, while the other says down.
+        self.assertEqual(len(connection.state.peers_up), 1)
+        self.assertEqual(len(connection.state.peers_down), 1)
