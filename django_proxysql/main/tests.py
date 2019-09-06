@@ -5,7 +5,7 @@ from freezegun import freeze_time
 from MySQLdb._exceptions import OperationalError
 
 from django.test import SimpleTestCase
-from django.db import connections
+from django.db import connection
 from django.db.utils import DatabaseError, DEFAULT_DB_ALIAS
 
 
@@ -30,33 +30,31 @@ class ProxySQLTestCase(SimpleTestCase):
 class PeerTestCase(ProxySQLTestCase):
     def setUp(self):
         "Reset peer state between each test."
-        connections[DEFAULT_DB_ALIAS].state.reset()
+        connection.state.reset()
 
     @mock.patch('MySQLdb.connect')
     def test_connect_all_down(self, mock_connect):
         "Ensure an error is raised when all peers are down."
         mock_connect.side_effect = OperationalError()
 
-        conn = connections[DEFAULT_DB_ALIAS]
         # If all servers are down, we should raise an exception:
         with self.assertRaises(DatabaseError):
-            conn.connect()
+            connection.connect()
 
         # No peers should be up.
-        self.assertEqual(len(conn.state.peers_up), 0)
+        self.assertEqual(len(connection.state.peers_up), 0)
 
     @mock.patch('MySQLdb.connect')
     def test_connect_one_down(self, mock_connect):
         "Ensure that connect() works when a peer is down but another is up."
         mock_connect.side_effect = [OperationalError(), mock.MagicMock()]
 
-        conn = connections[DEFAULT_DB_ALIAS]
         # If any server is up, connect() should succeed.
-        conn.connect()
+        connection.connect()
 
         # One peer should be up, and one down.
-        self.assertEqual(len(conn.state.peers_up), 1)
-        self.assertEqual(len(conn.state.peers_down), 1)
+        self.assertEqual(len(connection.state.peers_up), 1)
+        self.assertEqual(len(connection.state.peers_down), 1)
 
     @mock.patch('MySQLdb.connect')
     def test_connect_recovery(self, mock_connect):
@@ -64,18 +62,18 @@ class PeerTestCase(ProxySQLTestCase):
         mock_connect.side_effect = [
             OperationalError(), mock.MagicMock(), mock.MagicMock()]
 
-        conn = connections[DEFAULT_DB_ALIAS]
         # If any server is up, connect() should succeed.
-        conn.connect()
+        connection.connect()
 
         # One peer should be up, and one down.
-        self.assertEqual(len(conn.state.peers_up), 1)
-        self.assertEqual(len(conn.state.peers_down), 1)
+        self.assertEqual(len(connection.state.peers_up), 1)
+        self.assertEqual(len(connection.state.peers_down), 1)
 
         # FFWD time, our failed server should be retried.
-        future = datetime.now() + timedelta(seconds=conn.state.check_interval)
+        future = datetime.now() + timedelta(
+            seconds=connection.state.check_interval)
         with freeze_time(future):
-            conn.connect()
+            connection.connect()
 
         # all peers should be up once again.
-        self.assertItemsEqual(conn.state.peers_up, conn.state.peers)
+        self.assertItemsEqual(connection.state.peers_up, connection.state.peers)
