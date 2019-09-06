@@ -84,7 +84,7 @@ class PeerTestCase(ProxySQLTestCase):
         "Ensure that a peer is retried after check_interval passes."
         mock_connect.side_effect = [
             OperationalError(), OperationalError(), OperationalError(),
-            mock.MagicMock(), mock.MagicMock()]
+            mock.MagicMock(), mock.MagicMock(), mock.MagicMock()]
 
         # If any server is up, connect() should succeed.
         with self.assertRaises(DatabaseError):
@@ -99,7 +99,19 @@ class PeerTestCase(ProxySQLTestCase):
             seconds=connection.state.check_interval)
         with freeze_time(future):
             connection.connect()
+            # NOTE: this will NOT bring the other peer online as it's retry
+            # time has not yet transpired.
+            connection.connect()
 
-        # one peer should be up once again, while the other says down.
+        # One peer should be up once again, while the other stays down.
         self.assertEqual(len(connection.state.peers_up), 1)
         self.assertEqual(len(connection.state.peers_down), 1)
+
+        # FFWD time again, and reconnect.
+        future += timedelta(seconds=connection.state.check_interval)
+        with freeze_time(future):
+            connection.connect()
+
+        # All peers online once again.
+        self.assertEqual(len(connection.state.peers_up), 2)
+        self.assertEqual(len(connection.state.peers_down), 0)
