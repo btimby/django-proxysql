@@ -8,7 +8,6 @@ import MySQLdb
 
 from django.db import connections
 from django.db.backends.mysql import base
-from django.core.exceptions import ImproperlyConfigured
 from django.db.utils import DatabaseError, DEFAULT_DB_ALIAS
 
 
@@ -35,9 +34,9 @@ class PeerState(object):
         self.peers_down = None
 
     def initialize(self, peers, check_interval):
-        # Only first instance should initialize this instance.
+        "Get settings from settings.DATABASES. Not available during __init__()"
         if self.peers:
-            LOGGER.debug('Re-initialization attempted')
+            LOGGER.warn('Re-initialization attempted')
             return
 
         self.check_interval = check_interval
@@ -46,17 +45,20 @@ class PeerState(object):
         self.peers_down = {}
 
     def reset(self):
+        "Reset all peers to peers_up."
         self.peers_down.clear()
         for peer_name in self.peers:
             self.peers_up.add(peer_name)
 
     def mark_peer_up(self, peer_name):
+        "Remove the named peer from peers_down and add to peers_up."
         with self.state_lock:
             self.peers_down.pop(peer_name)
             self.peers_up.add(peer_name)
         LOGGER.info('Marked peer %s as up', peer_name)
 
     def mark_peer_down(self, peer_name):
+        "Remove the named peer from peers_up and add to peers_down."
         with self.state_lock:
             retry = time() + self.check_interval
             self.peers_up.discard(peer_name)
@@ -64,12 +66,13 @@ class PeerState(object):
         LOGGER.info('Marked peer %s as down, retry at %s', peer_name, retry)
 
     def get_peer_connection(self, peer_name):
+        "Get a connection to the named peer."
         peer = connections[peer_name]
         peer.connect()
         return peer
 
     def try_downed_peers(self):
-        # Only one thread should retry downed servers at a time.
+        "Try peers_down and return a live connection (if available)."
         self.retry_lock.acquire(False)
 
         try:
@@ -93,7 +96,7 @@ class PeerState(object):
             self.retry_lock.release()
 
     def get_random_peer(self):
-        # Select a random peer.
+        "Select a random peer and ensure it is alive."
         while True:
             try:
                 peer_name = random.sample(self.peers_up, 1)[0]
@@ -111,14 +114,19 @@ class PeerState(object):
 
 
 class DatabaseWrapper(base.DatabaseWrapper):
+    "DatabaseWrapper that handles multiple peers."
+
+    # Tracks the state of our peers.
     state = PeerState()
 
     def __init__(self, settings_dict, alias=DEFAULT_DB_ALIAS):
+        "Initialize the base DatabaseWrapper and our peer state."
         super(DatabaseWrapper, self).__init__(settings_dict, alias=alias)
         self.state.initialize(
             settings_dict['PEERS'],
             settings_dict.get('CHECK_INTERVAL', CHECK_INTERVAL))
 
     def connect(self):
+        "Try to connect to a configured peer."
         conn = self.state.try_downed_peers() or self.state.get_random_peer()
         self.connection = conn.connection
