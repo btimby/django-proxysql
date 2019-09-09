@@ -37,6 +37,8 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+
+    'main',
 ]
 
 MIDDLEWARE = [
@@ -76,27 +78,28 @@ WSGI_APPLICATION = 'django_proxysql.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'backends.proxysql',
-        'PEERS': ['peer0', 'peer1'],
+        'PEERS': ['proxy0', 'proxy1'],
         'CHECK_INTERVAL': 30,
     },
-    'peer0': {
+    'proxy0': {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'db_name',
         'USER': 'user',
         'PASSWORD': 'password',
-        'HOST': 'peer0',
+        'HOST': '192.168.1.148',
         'PORT': 6033,
     },
-    'peer1': {
+    'proxy1': {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'db_name',
         'USER': 'user',
         'PASSWORD': 'password',
-        'HOST': 'peer1',
+        'HOST': '192.168.1.135',
         'PORT': 6033,
     },
 }
 
+SILENCED_SYSTEM_CHECKS = ["database"]
 
 # Password validation
 # https://docs.djangoproject.com/en/2.2/ref/settings/#auth-password-validators
@@ -135,3 +138,33 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/2.2/howto/static-files/
 
 STATIC_URL = '/static/'
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '%(levelname)s %(asctime)s %(module)s %(process)d %(thread)d %(message)s'
+        },
+        'simple': {
+            'format': '%(levelname)s %(message)s'
+        },
+    },
+    'handlers': {
+        'console': {
+            'level': 'DEBUG',
+            'class': 'logging.StreamHandler',
+            'formatter': 'simple'
+        },
+    },
+    'loggers': {
+        'backends.proxysql.base': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+        },
+        'django': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+        },
+    }
+}

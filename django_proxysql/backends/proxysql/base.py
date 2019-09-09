@@ -13,6 +13,7 @@ from django.db.utils import DatabaseError, DEFAULT_DB_ALIAS
 
 LOGGER = logging.getLogger(__name__)
 LOGGER.addHandler(logging.NullHandler())
+
 CHECK_INTERVAL = 30
 
 
@@ -43,6 +44,7 @@ class PeerState(object):
         self.peers = set(peers)
         self.peers_up = set(peers)
         self.peers_down = {}
+        LOGGER.debug('Initialized with peers: %s', peers)
 
     def reset(self):
         "Reset all peers to peers_up."
@@ -65,53 +67,24 @@ class PeerState(object):
             self.peers_down[peer_name] = retry
         LOGGER.info('Marked peer %s as down, retry at %s', peer_name, retry)
 
-    def get_peer_connection(self, peer_name):
-        "Get a connection to the named peer."
-        peer = connections[peer_name]
-        peer.connect()
-        return peer
-
-    def try_downed_peers(self):
-        "Try peers_down and return a live connection (if available)."
-        if not self.retry_lock.acquire(False):
-            return
-
-        try:
-            for peer_name, retry in self.peers_down.items():
-                if time() >= retry:
-                    # Time to re-check this peer.
-                    try:
-                        conn = self.get_peer_connection(peer_name)
-
-                    except MySQLdb.Error as e:
-                        # Still down.
-                        LOGGER.debug(e, exc_info=True)
-                        LOGGER.info('Peer %s is still down', peer_name)
-                        self.mark_peer_down(peer_name)
-
-                    else:
-                        self.mark_peer_up(peer_name)
-                        return conn
-
-        finally:
-            self.retry_lock.release()
-
-    def get_random_peer(self):
-        "Select a random peer and ensure it is alive."
-        while True:
+    def get_peers(self):
+        if self.retry_lock.acquire(False):
             try:
-                peer_name = random.sample(self.peers_up, 1)[0]
+                LOGGER.debug('Retrying down peers')
+                for peer_name, retry in self.peers_down.items():
+                    if time() >= retry:
+                        LOGGER.debug('Retrying peer: %s', peer_name)
+                        yield peer_name
 
-            except ValueError:
-                # No peers up.
-                raise DatabaseError('No available peers')
+            finally:
+                self.retry_lock.release()
 
-            try:
-                return self.get_peer_connection(peer_name)
+        else:
+            LOGGER.warn('Retry lock being held by another thread.')
 
-            except MySQLdb.Error as e:
-                LOGGER.info(e, exc_info=True)
-                self.mark_peer_down(peer_name)
+        for peer_name in random.sample(self.peers_up, k=len(self.peers_up)):
+            LOGGER.debug('Trying peer: %s', peer_name)
+            yield peer_name
 
 
 class DatabaseWrapper(base.DatabaseWrapper):
@@ -129,5 +102,13 @@ class DatabaseWrapper(base.DatabaseWrapper):
 
     def connect(self):
         "Try to connect to a configured peer."
-        conn = self.state.try_downed_peers() or self.state.get_random_peer()
-        self.connection = conn.connection
+        for peer_name in self.state.get_peers():
+            self.settings_dict = connections[peer_name].settings_dict
+
+            try:
+                super(DatabaseWrapper, self).connect()
+                return
+
+            except MySQLdb.Error as e:
+                LOGGER.info(e, exc_info=True)
+                self.state.mark_peer_down(peer_name)
