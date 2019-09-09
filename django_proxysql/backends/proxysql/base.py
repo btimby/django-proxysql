@@ -55,7 +55,7 @@ class PeerState(object):
     def mark_peer_up(self, peer_name):
         "Remove the named peer from peers_down and add to peers_up."
         with self.state_lock:
-            self.peers_down.pop(peer_name)
+            self.peers_down.pop(peer_name, None)
             self.peers_up.add(peer_name)
         LOGGER.info('Marked peer %s as up', peer_name)
 
@@ -68,6 +68,7 @@ class PeerState(object):
         LOGGER.info('Marked peer %s as down, retry at %s', peer_name, retry)
 
     def get_peers(self):
+        "Generator that returns peers in order of importance."
         if self.retry_lock.acquire(False):
             try:
                 LOGGER.debug('Retrying down peers')
@@ -107,8 +108,11 @@ class DatabaseWrapper(base.DatabaseWrapper):
 
             try:
                 super(DatabaseWrapper, self).connect()
+                self.state.mark_peer_up(peer_name)
                 return
 
             except MySQLdb.Error as e:
                 LOGGER.info(e, exc_info=True)
                 self.state.mark_peer_down(peer_name)
+
+        raise DatabaseError('No peers available')
