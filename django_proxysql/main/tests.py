@@ -1,4 +1,3 @@
-from unittest import mock
 from datetime import datetime, timedelta
 
 from freezegun import freeze_time
@@ -7,6 +6,11 @@ from MySQLdb._exceptions import OperationalError
 from django.test import SimpleTestCase
 from django.db import connection
 from django.db.utils import DatabaseError, DEFAULT_DB_ALIAS
+
+try:
+    from unittest import mock
+except ImportError:
+    import mock
 
 try:
     from django.test.simple import DjangoTestSuiteRunner
