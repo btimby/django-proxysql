@@ -10,6 +10,8 @@ django = "*"
 mysqlclient = "*"
 mock = "*"
 freezegun = "*"
+coverage = "*"
+coveralls = "*"
 
 [requires]
 python_version = "3.6"

@@ -1,0 +1,59 @@
+language: python
+python:
+- '2.7'
+- '3.5'
+- '3.6'
+env:
+  global:
+  - PIPENV_VENV_IN_PROJECT=1
+  - PIPENV_IGNORE_VIRTUALENVS=1
+  matrix:
+  - DJANGO=1.4
+  - DJANGO=1.5
+  - DJANGO=1.6
+  - DJANGO=1.7
+  - DJANGO=1.8
+  - DJANGO=1.9
+  - DJANGO=1.10
+  - DJANGO=1.11
+  - DJANGO=2.0.5
+matrix:
+  exclude:
+  - python: '3.5'
+    env: DJANGO=1.4
+  - python: '3.5'
+    env: DJANGO=1.5
+  - python: '3.5'
+    env: DJANGO=1.6
+  - python: '3.5'
+    env: DJANGO=1.7
+  - python: '3.6'
+    env: DJANGO=1.4
+  - python: '3.6'
+    env: DJANGO=1.5
+  - python: '3.6'
+    env: DJANGO=1.6
+  - python: '3.6'
+    env: DJANGO=1.7
+  - python: '2.7'
+    env: DJANGO=2.0.5
+install:
+- make install
+- pipenv install django==${DJANGO}
+script:
+- make test
+after_success:
+- make coveralls
+jobs:
+  include:
+    - stage: deploy
+      python: '3.6'
+      env: DJANGO=1.11
+      script: echo "Deploying to PyPI ..."
+      deploy:
+        provider: pypi
+        user: Ben.Timby
+        password:
+          secure: mruJd7fc3gt8tVO7Uo0fC8v+2lvyF8Uw/hMpvPnrtYNdvQEVDFTCrG0X6fk0oXduwjL0DWzixa2NKmZDYygyChNRdLrxGGXHkZ9Mykdr2XXxeKP51GJt7gMPo7js2+eeaKxkBc90k8uNhowV4q/KTew7yaGJKLOub/KxW6Bbo+YBvdkJwk0HBaPhIXc5o5O+k4iFf+wQ5o7cJE0eCKmELjEDpSgLCXawrUskEL6RC0LkyOo/30TjaCxIiEswU9w7E3lkEw1d1ZCQg5oYv88hp2mzYP4tjjULu+ko7quFWzCkOvRZ1TyNtH2t05V5srWfMnLbAtPgBMowZJeaC7uJvSdeRaHBY5xykNS3yo+C5NJBvZsjDLvb19rz1qt0qtai3kBHt2JEkcNhQyrsVkg79fQIw+UtLDIA7sRQKTxcVU4R62C5dsOgl35PuPOSpgcQcYyeGrwVK+XY05YLIPBagzy7+1CjApfgok0Ut3lGfvxiyNy1dtPlBHhu0D5GMxOIspIMH6G2+lJUbsAIcGrvEWVH/cmOmAD67eE0psgsgnshi5HuRofxieJnz9EsNVxF8xBY6UYPSDrS37qjfSSt97wkAp+K2htUVjTtwAFRjfhOXfczHFIGYDWW54QC6uW9+ls6T4/9AdS7hO2IK7ApV3aMQpEP36/zZDwleYLF7Og=
+        on:
+          tags: true
