@@ -3,7 +3,7 @@ install:
 	pipenv install --dev
 
 test:
-	cd django_proxysql && pipenv run -- coverage run --include="django_proxysql/*" manage.py test django_proxysql
+	cd django_proxysql && pipenv run -- coverage run --include="backends/*" manage.py test main
 
 coveralls:
 	cd django_proxysql && pipenv run -- coveralls
