@@ -94,12 +94,12 @@ class DatabaseWrapper(base.DatabaseWrapper):
     # Tracks the state of our peers.
     state = PeerState()
 
-    def __init__(self, settings_dict, alias=DEFAULT_DB_ALIAS):
+    def __init__(self, *args, **kwargs):
         "Initialize the base DatabaseWrapper and our peer state."
-        super(DatabaseWrapper, self).__init__(settings_dict, alias=alias)
+        super(DatabaseWrapper, self).__init__(*args, **kwargs)
         self.state.initialize(
-            settings_dict['PEERS'],
-            settings_dict.get('CHECK_INTERVAL', CHECK_INTERVAL))
+            self.settings_dict['PEERS'],
+            self.settings_dict.get('CHECK_INTERVAL', CHECK_INTERVAL))
 
     def connect(self):
         "Try to connect to a configured peer."

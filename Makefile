@@ -1,6 +1,6 @@
 install:
 	pip install pipenv
-	pipenv sync -d
+	pipenv install --dev
 
 test:
 	cd django_proxysql && pipenv run -- coverage run --include="django_proxysql/*" manage.py test django_proxysql
