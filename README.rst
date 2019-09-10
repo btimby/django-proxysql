@@ -18,9 +18,15 @@ Django database engine that manages multiple peer database connections and
 distributes queries to each equally. It also notes if a peer fails and stops
 sending queries to that peer until it recovers.
 
-This project was developed for MySQL and it's kin, but could be used with any
-Django compatible database engine. Most likely the connection error detection
-would need to be adapted (as ``MySQLdb.Error`` is used to detect failure).
+This project was developed for MySQL, Galera and ProxySQL. However it could be
+used with any Django compatible database engine. Most likely the connection
+error detection would need to be adapted (as ``MySQLdb.Error`` is used to
+detect failure).
+
+``django-proxysql`` can be used without ProxySQL (for instance, your peers
+could be Galera cluster nodes), or with a different load balancer such as
+MaxScale. You can also combine this with multidb, where your Django router
+routes between multiple pools of database peers.
 
 Why?
 ====
@@ -36,18 +42,15 @@ route queries accordingly.
 
 ``django-proxysql`` assumes you are using a pool of peer MySQL, ProxySQL or
 MaxScale servers that are all exactly equivalent. It does not intelligently
-route queries, that is left to ProxySQL.
-
-If you are running a Galera cluster and you are not interested in read / write
-split, this database engine can be used in place of a load balancer. Just
-configure your Galera nodes as peers.
+route queries, that is left to the downstream peers.
 
 How?
 ====
 
 Configure your MySQL peers as additional databases in Django settings. Then
 configure your ``default`` django database to use this engine and specify the
-peers.
+peers. You can also specify the optional ``CHECK_INTERVAL`` which controls how
+often a downed peer is rechecked (30s default).
 
 
 .. code:: python
@@ -77,20 +80,97 @@ peers.
     }
 
 Now when you use the default database in Django, connections will be randomly
-distributed to the peers. Failure of a peer is transparent to Django. Failed
-peers will recover after the configured `CHECK_INTERVAL`.
+distributed to the peers.
+
+If you don't need a dedicated load balancer such as ProxySQL or MaxScale, you
+can simply configure your Galera cluster nodes as your peers.
+
+.. code:: python
+
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django_proxysql.backends.proxysql',
+            'PEERS': ['galera0', 'galera1'],
+        },
+        'peer0': {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': 'db_name',
+            'USER': 'user',
+            'PASSWORD': 'password',
+            'HOST': 'galera0',
+            'PORT': 6033,
+        },
+        'peer1': {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': 'db_name',
+            'USER': 'user',
+            'PASSWORD': 'password',
+            'HOST': 'galera1',
+            'PORT': 6033,
+        },
+    }
+
+
+You can configure more than one ``django-proxysql`` backend and then use Django
+multidb to route between those.
+
+.. code:: python
+
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django_proxysql.backends.proxysql',
+            'PEERS': ['peer0', 'peer1'],
+        },
+        'users': {
+            'ENGINE': 'django_proxysql.backends.proxysql',
+            'PEERS': ['peer2', 'peer3'],
+        },
+        'peer0': {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': 'db_name',
+            'USER': 'user',
+            'PASSWORD': 'password',
+            'HOST': 'peer0',
+            'PORT': 6033,
+        },
+        'peer1': {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': 'db_name',
+            'USER': 'user',
+            'PASSWORD': 'password',
+            'HOST': 'peer1',
+            'PORT': 6033,
+        },
+        'peer2': {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': 'db_name',
+            'USER': 'user',
+            'PASSWORD': 'password',
+            'HOST': 'peer2',
+            'PORT': 6033,
+        },
+        'peer3': {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': 'db_name',
+            'USER': 'user',
+            'PASSWORD': 'password',
+            'HOST': 'peer3',
+            'PORT': 6033,
+        },
+    }
+
 
 Anything Else?
 ==============
 
-Yes, to perform maintenance on a ProxySQL instance, just connect to it's admin
-port, ``6032`` and issue a ``PROXYSQL PAUSE`` command. This will start refusing
-new clients, but allow running queries to complete. `django-proxysql` will
-detect the "failure" of the node and stop attempting to connect to it. Once all
-active connections are drained, you can stop ProxySQL, perform maintenance then
-restore the service. You can repeat this for each instance of ProxySQL without
-any downtime.
+Because only connection errors are handled by the engine, other errors like
+dropped connections will cause failures in your application. Therefore if you
+are performing a rolling upgrade, you must gracefully drain each peer. For
+example, with ProxySQL you can do this by issuing the ``PROXYSQL PAUSE``
+command within the admin interface (port 6032). This causes ProxySQL to stop
+accepting new connections, which ``django-proxysql`` will detect and handle
+without a single error.
 
 Also note that when migrations are applied, Django performs a check of ALL
-CONFIGURED DATABASES. This means that all peers must be online in order for
-migrations to succeed.
+CONFIGURED DATABASES. This bears repeating. All database peers must be online
+in order to perform database migrations.
