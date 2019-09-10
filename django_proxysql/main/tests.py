@@ -19,18 +19,21 @@ except ImportError:
 
 
 class NoDbTestRunner(DjangoTestSuiteRunner):
-  """ A test runner to test without database creation """
+    "A test runner that skips database creation."
 
-  def setup_databases(self, **kwargs):
-    """ Override the database creation defined in parent class """
-    pass
+    def setup_databases(self, **kwargs):
+        "NO-OP"
+        pass
 
-  def teardown_databases(self, old_config, **kwargs):
-    """ Override the database teardown defined in parent class """
-    pass
+    def teardown_databases(self, old_config, **kwargs):
+        "NO-OP"
+        pass
 
 
 class ProxySQLTestCase(SimpleTestCase):
+    "A TestCase Subclass that works around Django database testing safeguards."
+    allow_database_queries = True
+
     @classmethod
     def _add_databases_failures(cls):
         """Django tests lock you out of the database unless a test database is
