@@ -8,6 +8,23 @@ from django.test import SimpleTestCase
 from django.db import connection
 from django.db.utils import DatabaseError, DEFAULT_DB_ALIAS
 
+try:
+    from django.test.simple import DjangoTestSuiteRunner
+except ImportError:
+    from django.test.runner import DiscoverRunner as DjangoTestSuiteRunner
+
+
+class NoDbTestRunner(DjangoTestSuiteRunner):
+  """ A test runner to test without database creation """
+
+  def setup_databases(self, **kwargs):
+    """ Override the database creation defined in parent class """
+    pass
+
+  def teardown_databases(self, old_config, **kwargs):
+    """ Override the database teardown defined in parent class """
+    pass
+
 
 class ProxySQLTestCase(SimpleTestCase):
     @classmethod
