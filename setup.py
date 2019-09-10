@@ -16,9 +16,12 @@ version_py = pathjoin(
 try:
     version_git = check_output(['git', 'describe', '--tags']).rstrip()
     version_git = version_git.decode('utf-8')
+    version_git = version_git.partition('-')[0]
+
 except (CalledProcessError, OSError):
     with open(version_py, 'rt') as f:
         version_git = f.read().strip().split('=')[-1].replace('"', '')
+
 else:
     # Write out version.py.
     with open(version_py, 'wt') as f:
