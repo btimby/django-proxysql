@@ -47,10 +47,16 @@ route queries, that is left to the downstream peers.
 How?
 ====
 
-Configure your MySQL peers as additional databases in Django settings. Then
-configure your ``default`` django database to use this engine and specify the
-peers. You can also specify the optional ``CHECK_INTERVAL`` which controls how
-often a downed peer is rechecked (30s default).
+First install django-proxysql, for example:
+
+.. code:: bash
+
+    pip install django-proxysql
+
+Then configure your MySQL peers as additional databases in Django settings.
+Set your ``default`` django database to use this engine and specify the peers.
+You can also specify the optional ``CHECK_INTERVAL`` which controls how often a
+downed peer is rechecked (30s default).
 
 
 .. code:: python
@@ -174,3 +180,22 @@ without a single error.
 Also note that when migrations are applied, Django performs a check of ALL
 CONFIGURED DATABASES. This bears repeating. All database peers must be online
 in order to perform database migrations.
+
+Compatability
+=============
+
++--------------------------------------------+
+| Python                                     |
++====================+=====+=====+=====+=====+
+|                    | 2.7 | 3.5 | 3.6 | 3.7 |
++-------------+------+-----+-----+-----+-----+
+| Django      | 1.10 |  O  |  O  |  O  |  O  |
+|             +------+-----+-----+-----+-----+
+|             | 1.11 |  O  |  O  |  O  |  O  |
+|             +------+-----+-----+-----+-----+
+|             | 2.0  |     |  O  |  O  |  O  |
+|             +------+-----+-----+-----+-----+
+|             | 2.1  |     |  O  |  O  |  O  |
+|             +------+-----+-----+-----+-----+
+|             | 2.2  |     |  O  |  O  |  O  |
++-------------+------+-----+-----+-----+-----+

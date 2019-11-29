@@ -35,7 +35,7 @@ with open(readme) as readme_file:
 setup(
     name=package_name,
     version=version_git,
-    description='Integration between Django and Kubernetes.',
+    description='A software load balancer for your Django database.',
     long_description=long_description,
     author='Ben Timby',
     author_email='btimby@gmail.com',
