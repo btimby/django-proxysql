@@ -4,7 +4,7 @@ import os
 from os.path import join as pathjoin
 from os.path import dirname
 from subprocess import check_output, CalledProcessError
-from setuptools import setup
+from setuptools import setup, find_packages
 
 
 package_name = 'django-proxysql'
@@ -41,9 +41,7 @@ setup(
     author_email='btimby@gmail.com',
     url='http://github.com/btimby/' + package_name + '/',
     license='MIT',
-    packages=[
-        package_name.replace('-', '_'),
-    ],
+    packages=find_packages(),
     classifiers=(
           'Development Status :: 4 - Beta',
           'Intended Audience :: Developers',
