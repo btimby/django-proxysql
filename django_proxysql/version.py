@@ -1,2 +1,2 @@
 # Do not edit. See setup.py.
-__version__ = "0.4"
+__version__ = "0.6"

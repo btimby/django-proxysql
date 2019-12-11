@@ -9,7 +9,7 @@ coveralls:
 	pipenv run -- coveralls
 
 clean:
-	rm -rf dist build *.egg-info
+	rm -rf dist build *.egg-info .coverage
 
 publish:
 	$(MAKE) clean
